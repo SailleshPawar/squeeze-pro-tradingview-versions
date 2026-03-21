@@ -1,0 +1,17 @@
+//@version=5
+indicator("TTM Squeeze Classic", shorttitle="TTM Classic", overlay=false)
+
+length = input.int(20, "Length", minval=1)
+
+bbandUpper = ta.sma(close, length) + 2.0 * ta.stdev(close, length)
+keltnerUpper = ta.ema(close, length) + ta.ema(ta.tr, length)
+
+meanBasis = ((ta.highest(high, length) + ta.lowest(low, length)) / 2.0 + ta.sma(close, length)) / 2.0
+osc = ta.linreg(close - meanBasis, length, 0)
+diff = bbandUpper - keltnerUpper
+
+oscColor = osc > nz(osc[1]) ? (osc >= 0 ? color.rgb(0, 255, 255) : color.rgb(204, 0, 204)) : (osc >= 0 ? color.rgb(0, 155, 155) : color.rgb(255, 155, 255))
+squeezeColor = diff >= 0 ? color.green : color.red
+
+plot(osc, "Oscillator", color=oscColor, style=plot.style_histogram, linewidth=2)
+plot(0, "Squeeze State", color=squeezeColor, style=plot.style_circles, linewidth=3)

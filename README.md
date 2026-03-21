@@ -7,6 +7,11 @@ This repo contains local TradingView/Pine recreations and notes derived from the
 - `SqueezePro_TradingView.pine`
   - Lower-pane Squeeze Pro style recreation with squeeze dots, histogram, legacy arrows, and FIRE markers.
 
+- `TTM_Squeeze_Classic.pine`
+  - Classic single-state TTM Squeeze style version.
+  - `Red` zero-line dots = squeeze on
+  - `Green` zero-line dots = squeeze off
+
 - `SqueezePro_LiveChecklist_Overlay.pine`
   - Overlay companion based on the live trading session.
   - Adds:
@@ -26,6 +31,7 @@ Use both indicators together:
 
 1. Add `SqueezePro_TradingView.pine` to keep the classic lower-panel squeeze view.
 2. Add `SqueezePro_LiveChecklist_Overlay.pine` on price to filter setups.
+3. Add `TTM_Squeeze_Classic.pine` if you want the original simpler red/green TTM-style squeeze state.
 
 ## Important Note
 
