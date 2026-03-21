@@ -1,0 +1,115 @@
+//@version=5
+indicator("Squeeze Pro-Style for TradingView", shorttitle="Squeeze Pro TV", overlay=false)
+
+// The local docs describe the visible behavior, but not the full proprietary math.
+// This recreation uses the standard Squeeze Pro structure:
+// Bollinger Bands inside three Keltner widths plus a linear-regression momentum histogram.
+
+groupCalc = "Calculation"
+src = input.source(close, "Source", group=groupCalc)
+length = input.int(20, "Length", minval=1, group=groupCalc)
+bbMult = input.float(2.0, "Bollinger Multiplier", minval=0.1, step=0.1, group=groupCalc)
+kcHighMult = input.float(1.0, "KC Multiplier - High Compression", minval=0.1, step=0.1, group=groupCalc)
+kcMidMult = input.float(1.5, "KC Multiplier - Mid Compression", minval=0.1, step=0.1, group=groupCalc)
+kcLowMult = input.float(2.0, "KC Multiplier - Low Compression", minval=0.1, step=0.1, group=groupCalc)
+useTrueRange = input.bool(true, "Use True Range For Keltner Channel", group=groupCalc)
+
+groupSignals = "Signals"
+showSignals = input.bool(true, "Show Legacy Signal Arrows", group=groupSignals)
+triggerBars = input.int(6, "Trigger Threshold (Bars)", minval=1, group=groupSignals)
+signalMode = input.string("HistAboveBelowZero", "Signal Direction Mode", options=["HistAboveBelowZero", "HistRisingFalling", "HistRisingFromBelowFallingFromAbove"], group=groupSignals)
+
+groupLaunch = "Launch Detection"
+showLaunchMarkers = input.bool(true, "Show FIRE Release Markers", group=groupLaunch)
+launchMode = input.string("SignalMode", "Launch Confirmation Mode", options=["SignalMode", "MomentumDirection"], group=groupLaunch)
+
+groupStyle = "Style"
+showZeroLine = input.bool(true, "Show Zero Line", group=groupStyle)
+highCompressionColor = input.color(color.rgb(184, 134, 11), "High Compression Color", group=groupStyle)
+midCompressionColor = input.color(color.rgb(139, 0, 0), "Mid Compression Color", group=groupStyle)
+lowCompressionColor = input.color(color.rgb(25, 25, 25), "Low Compression Color", group=groupStyle)
+releasedColorDefault = input.color(color.rgb(0, 170, 0), "No Squeeze Color", group=groupStyle)
+signalTextColor = input.color(color.black, "Signal Text Color", group=groupStyle)
+fireTextColor = input.color(color.black, "FIRE Text Color", group=groupStyle)
+
+basis = ta.sma(src, length)
+deviation = ta.stdev(src, length) * bbMult
+upperBB = basis + deviation
+lowerBB = basis - deviation
+
+previousClose = nz(close[1], close)
+trueRange = math.max(high - low, math.max(math.abs(high - previousClose), math.abs(low - previousClose)))
+rangeValue = useTrueRange ? trueRange : high - low
+rangeMA = ta.sma(rangeValue, length)
+
+upperKC(mult) => basis + rangeMA * mult
+lowerKC(mult) => basis - rangeMA * mult
+insideKC(mult) => upperBB <= upperKC(mult) and lowerBB >= lowerKC(mult)
+
+highCompression = insideKC(kcHighMult)
+midCompression = not highCompression and insideKC(kcMidMult)
+lowCompression = not highCompression and not midCompression and insideKC(kcLowMult)
+noSqueeze = not highCompression and not midCompression and not lowCompression
+
+highestHigh = ta.highest(high, length)
+lowestLow = ta.lowest(low, length)
+meanPrice = math.avg(math.avg(highestHigh, lowestLow), ta.sma(close, length))
+momentum = ta.linreg(src - meanPrice, length, 0)
+
+histRising = momentum > momentum[1]
+histFalling = momentum < momentum[1]
+histAboveZero = momentum > 0
+histBelowOrEqualZero = momentum <= 0
+
+histColor = momentum >= 0 ?
+     (histRising ? color.aqua : color.blue) :
+     (histRising ? color.yellow : color.red)
+
+dotColor = highCompression ? highCompressionColor :
+     midCompression ? midCompressionColor :
+     lowCompression ? lowCompressionColor :
+     releasedColorDefault
+
+level = highCompression ? 3 : midCompression ? 2 : lowCompression ? 1 : 0
+var int levelCount = 0
+levelCount := level > 0 ? (level == level[1] ? nz(levelCount[1]) + 1 : 1) : 0
+signalReady = showSignals and level > 0 and levelCount == triggerBars
+
+longBias = switch signalMode
+    "HistAboveBelowZero" => histAboveZero
+    "HistRisingFalling" => histRising
+    => momentum < 0 and histRising
+
+shortBias = switch signalMode
+    "HistAboveBelowZero" => histBelowOrEqualZero
+    "HistRisingFalling" => histFalling
+    => momentum > 0 and histFalling
+
+signalColor = highCompression ? highCompressionColor :
+     midCompression ? midCompressionColor :
+     lowCompressionColor
+releasedColor = level[1] == 3 ? highCompressionColor :
+     level[1] == 2 ? midCompressionColor :
+     lowCompressionColor
+
+launchNow = level == 0 and level[1] > 0
+launchLong = launchNow and (launchMode == "SignalMode" ? longBias : momentum > 0 and histRising)
+launchShort = launchNow and (launchMode == "SignalMode" ? shortBias : momentum < 0 and histFalling)
+
+plot(momentum, "Momentum Histogram", style=plot.style_histogram, color=histColor, linewidth=4)
+plot(showZeroLine ? 0 : na, "Zero Line", color=color.new(color.gray, 70))
+plot(0, "Squeeze Dots", style=plot.style_circles, linewidth=3, color=dotColor)
+
+longSignal = signalReady and longBias
+shortSignal = signalReady and shortBias
+
+plotshape(longSignal, "Long Signal", style=shape.triangleup, location=location.bottom, color=signalColor, size=size.tiny, text="L", textcolor=signalTextColor)
+plotshape(shortSignal, "Short Signal", style=shape.triangledown, location=location.top, color=signalColor, size=size.tiny, text="S", textcolor=signalTextColor)
+plotshape(showLaunchMarkers and launchLong, "Launch Long", style=shape.arrowup, location=location.bottom, color=releasedColor, size=size.small, text="FIRE", textcolor=fireTextColor)
+plotshape(showLaunchMarkers and launchShort, "Launch Short", style=shape.arrowdown, location=location.top, color=releasedColor, size=size.small, text="FIRE", textcolor=fireTextColor)
+
+alertcondition(longSignal, "Squeeze Pro Long Signal", "Squeeze Pro-style long signal")
+alertcondition(shortSignal, "Squeeze Pro Short Signal", "Squeeze Pro-style short signal")
+alertcondition(launchNow, "Squeeze Released", "Squeeze just released on this bar")
+alertcondition(launchLong, "Squeeze Launch Long", "Squeeze just launched long")
+alertcondition(launchShort, "Squeeze Launch Short", "Squeeze just launched short")
