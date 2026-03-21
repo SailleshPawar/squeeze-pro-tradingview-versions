@@ -111,7 +111,14 @@ waitPullbackLong = cleanLong and not priceInLongZone
 waitPullbackShort = cleanShort and not priceInShortZone
 conflict = level > 0 and not cleanLong and not cleanShort
 
-squeezeColor = highCompression ? highCompressionColor : midCompression ? midCompressionColor : lowCompression ? lowCompressionColor : releasedColor
+squeezeColor = releasedColor
+if highCompression
+    squeezeColor := highCompressionColor
+else if midCompression
+    squeezeColor := midCompressionColor
+else if lowCompression
+    squeezeColor := lowCompressionColor
+
 textColorFor(bg) =>
     bg == lowCompressionColor ? color.white : color.black
 
@@ -139,28 +146,69 @@ bgcolor(conflict ? color.new(color.orange, 90) : na, title="Conflict Background"
 
 var table statusTable = table.new(position.top_right, 2, 5, border_width=1)
 
-squeezeText = level == 3 ? "HIGH" : level == 2 ? "MID" : level == 1 ? "LOW" : "OFF"
-trendText = trendLong ? "LONG" : trendShort ? "SHORT" : "FLAT"
-zoneText = extendedFromMean ? "EXTENDED" : priceInLongZone or priceInShortZone ? "IN 8/34" : "OUTSIDE"
-setupText = fireLong ? "FIRE LONG" :
-    fireShort ? "FIRE SHORT" :
-    longReady ? "LONG READY" :
-    shortReady ? "SHORT READY" :
-    waitPullbackLong ? "WAIT PULLBACK LONG" :
-    waitPullbackShort ? "WAIT PULLBACK SHORT" :
-    conflict ? "CONFLICT" :
-    level > 0 ? "BUILDING" : "NO SQUEEZE"
+squeezeText = "OFF"
+if level == 3
+    squeezeText := "HIGH"
+else if level == 2
+    squeezeText := "MID"
+else if level == 1
+    squeezeText := "LOW"
+
+trendText = "FLAT"
+if trendLong
+    trendText := "LONG"
+else if trendShort
+    trendText := "SHORT"
+
+zoneText = "OUTSIDE"
+if extendedFromMean
+    zoneText := "EXTENDED"
+else if priceInLongZone or priceInShortZone
+    zoneText := "IN 8/34"
+
+setupText = "NO SQUEEZE"
+if fireLong
+    setupText := "FIRE LONG"
+else if fireShort
+    setupText := "FIRE SHORT"
+else if longReady
+    setupText := "LONG READY"
+else if shortReady
+    setupText := "SHORT READY"
+else if waitPullbackLong
+    setupText := "WAIT PULLBACK LONG"
+else if waitPullbackShort
+    setupText := "WAIT PULLBACK SHORT"
+else if conflict
+    setupText := "CONFLICT"
+else if level > 0
+    setupText := "BUILDING"
+
 targetText = "2 ATR " + str.tostring(atrUpper2, format.mintick) + " / " + str.tostring(atrLower2, format.mintick)
 
-trendCellColor = trendLong ? color.new(color.green, 0) : trendShort ? color.new(color.red, 0) : color.new(color.gray, 40)
-zoneCellColor = extendedFromMean ? color.new(color.orange, 0) : color.new(color.teal, 20)
-setupCellColor = fireLong ? color.new(color.green, 0) :
-    fireShort ? color.new(color.red, 0) :
-    longReady ? color.new(color.green, 10) :
-    shortReady ? color.new(color.red, 10) :
-    waitPullbackLong or waitPullbackShort ? color.new(color.yellow, 10) :
-    conflict ? color.new(color.orange, 0) :
-    color.new(color.gray, 50)
+trendCellColor = color.new(color.gray, 40)
+if trendLong
+    trendCellColor := color.new(color.green, 0)
+else if trendShort
+    trendCellColor := color.new(color.red, 0)
+
+zoneCellColor = color.new(color.teal, 20)
+if extendedFromMean
+    zoneCellColor := color.new(color.orange, 0)
+
+setupCellColor = color.new(color.gray, 50)
+if fireLong
+    setupCellColor := color.new(color.green, 0)
+else if fireShort
+    setupCellColor := color.new(color.red, 0)
+else if longReady
+    setupCellColor := color.new(color.green, 10)
+else if shortReady
+    setupCellColor := color.new(color.red, 10)
+else if waitPullbackLong or waitPullbackShort
+    setupCellColor := color.new(color.yellow, 10)
+else if conflict
+    setupCellColor := color.new(color.orange, 0)
 
 if showStateTable and barstate.islast
     table.cell(statusTable, 0, 0, "Squeeze", bgcolor=color.new(color.gray, 25), text_color=color.white)
